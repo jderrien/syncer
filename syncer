@@ -71,20 +71,9 @@ end
 
 optparse.parse!
 
-if !options[:user] then
-	puts "Please provide a user name with option -u USER or --user USER. Run #{$0} --help for more info."
-	exit
-end
-
-if !options[:host] then
-	puts "Please provide a host name with option -H HOST or --host USER. Run #{$0} --help for more info."
-	exit
-end
-
-if !options[:dir] then
-	puts "Please provide a remote directory with option -d DIR or --dir DIR. Run #{$0} --help for more info."
-	exit
-end
+raise OptionParser::MissingArgument, "Please provide -u USER or --user USER." if options[:user].nil?
+raise OptionParser::MissingArgument, "Please provide -H HOST or --host HOST." if options[:host].nil?
+raise OptionParser::MissingArgument, "Please provide -d DIR or --dir DIR." if options[:dir].nil?
 
 $exclude = ""
 if options[:exclude] then
