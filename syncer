@@ -75,27 +75,27 @@ optparse.parse!
 raise OptionParser::MissingArgument, "Please provide -H HOST or --host HOST." if options[:host].nil?
 raise OptionParser::MissingArgument, "Please provide -d DIR or --dir DIR." if options[:dir].nil?
 
-$exclude = ""
+exclude = ""
 if options[:exclude] then
 	options[:exclude].split(/ /).each do |excludePath|
-		$exclude += "--exclude #{excludePath} "
+		exclude += "--exclude #{excludePath} "
 	end
 end
 
-$include = ""
+include = ""
 if options[:include] then
 	options[:include].split(/ /).each do |includePath|
-		$include += "--include #{includePath}"
+		include += "--include #{includePath}"
 	end
 end
 
-$d=File.basename Dir.pwd
-$locations = [$d];
+d=File.basename Dir.pwd
+locations = [d];
 
 if options[:follow] then
 	Dir.glob( File.join('.', '**', '*') ) do |filename|
 	    if (File.symlink?(filename)) then
-			$locations.push(File.readlink(filename))
+			locations.push(File.readlink(filename))
 	    end
 	end
 end
@@ -109,14 +109,14 @@ end
 fsevent = FSEvent.new
 Dir.chdir '..'
 
-$sync = "rsync #{options[:symlink]} -C #{options[:remove]} -rt --rsh='#{options[:ssh]}' #{$include} #{$exclude} '#{$d}' '#{options[:user]}@#{options[:host]}:#{options[:dir]}'" 
+sync = "rsync #{options[:symlink]} -C #{options[:remove]} -rt --rsh='#{options[:ssh]}' #{include} #{exclude} '#{d}' '#{options[:user]}@#{options[:host]}:#{options[:dir]}'" 
 
 system "/usr/local/bin/growlnotify -a 'Network Utility' -m 'Syncer2.0 started'"
-system $sync
+system sync
 system "/usr/local/bin/growlnotify -a 'Network Utility' -m 'Initial sync complete'"
 
-fsevent.watch $d do |directories|
-	system $sync
+fsevent.watch d do |directories|
+	system sync
 
 	if !directories.inspect.scan(Regexp.new(skippable_directories.join('|')))
 		system "/usr/local/bin/growlnotify -a 'Network Utility' -m 'Synced changes inside: #{directories.inspect}'"
