@@ -3,12 +3,13 @@
 require 'rubygems'
 require 'rb-fsevent'
 require 'optparse'
+require 'etc'
 
 skippable_directories = [ '.idea', '.git', '.svn', '.cvs' ]
 
 # set default options
 options = {
-	:user => nil,
+	:user => Etc.getlogin,
 	:host => nil,
 	:port => nil,
 	:dir => nil,
@@ -71,7 +72,6 @@ end
 
 optparse.parse!
 
-raise OptionParser::MissingArgument, "Please provide -u USER or --user USER." if options[:user].nil?
 raise OptionParser::MissingArgument, "Please provide -H HOST or --host HOST." if options[:host].nil?
 raise OptionParser::MissingArgument, "Please provide -d DIR or --dir DIR." if options[:dir].nil?
 
