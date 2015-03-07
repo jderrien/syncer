@@ -4,9 +4,20 @@ require 'rubygems'
 require 'rb-fsevent'
 require 'optparse'
 
-options = {}
-
 skippable_directories = [ '.idea', '.git', '.svn', '.cvs' ]
+
+# set default options
+options = {
+	:user => nil,
+	:host => nil,
+	:port => nil,
+	:dir => nil,
+	:exclude => nil,
+	:include => nil,
+	:follow => nil,
+	:remove => nil,
+	:symlink => '-L'
+}
 
 optparse = OptionParser.new do |opts|
 	# Set a banner, displayed at the top
@@ -14,51 +25,42 @@ optparse = OptionParser.new do |opts|
 	opts.banner = "Usage: #{$0} [options] file1 file2 ..."
 
 	# Define the options, and what they do
-	options[:user] = nil
 	opts.on('-u', '--user USER', 'User name for remote host') do |user|
 		options[:user] = user
 	end
 
-	options[:host] = nil
 	opts.on('-H', '--host HOST', 'Remote host to connect') do |host|
 		options[:host] = host
 	end
-	
-	options[:port] = nil
+
 	opts.on('-p', '--port PORT', 'Remote port to connect') do |port|
 		options[:port] = port
 	end
 
-	options[:dir] = nil
 	opts.on('-d', '--directory DIR', 'Base directory on remote host') do |dir|
 		options[:dir] = dir
 	end
-	
-	options[:exclude] = nil
+
 	opts.on('-e', '--exclude-paths EXCLUDE', 'File paths to exclude from the sync, separated by spaces') do |exclude|
 		options[:exclude] = exclude
 	end
 
-	options[:include] = nil
 	opts.on('-i', '--include-paths INCLUDE', 'File paths to include in the sync, separated by spaces') do |include|
 		options[:include] = include
 	end
-	
-	options[:follow] = nil
+
 	opts.on('-f', '--follow-symlinks', 'Listen to symlinked directories') do
 		options[:follow] = true
 	end
 
-	options[:remove] = nil
 	opts.on('-r', '--delete', 'Remove remote files that have been deleted locally') do |remove|
 		options[:remove] = '--delete'
 	end
-	
-	options[:symlink] = '-L'
+
 	opts.on('-s', '--preserve-symlinks', 'Preserve symlinks') do
 		options[:symlink] = '-l'
 	end
-	
+
 	# This displays the help screen, all programs are
 	# assumed to have this option.
 	opts.on('-h', '--help', 'Display this screen') do
