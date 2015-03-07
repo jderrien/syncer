@@ -1,66 +1,67 @@
 #!/usr/bin/env ruby
+
 require 'rubygems'
 require 'rb-fsevent'
 require 'optparse'
 
 options = {}
 
-skippableDirectories = ['.idea','.git','.svn','.cvs']
+skippable_directories = [ '.idea', '.git', '.svn', '.cvs' ]
 
-optparse = OptionParser.new do|opts|
+optparse = OptionParser.new do |opts|
 	# Set a banner, displayed at the top
 	# of the help screen.
 	opts.banner = "Usage: #{$0} [options] file1 file2 ..."
 
 	# Define the options, and what they do
 	options[:user] = nil
-	opts.on( '-u', '--user USER', 'User name for remote host' ) do|user|
+	opts.on('-u', '--user USER', 'User name for remote host') do |user|
 		options[:user] = user
 	end
 
 	options[:host] = nil
-	opts.on( '-H', '--host HOST', 'Remote host to connect' ) do|host|
+	opts.on('-H', '--host HOST', 'Remote host to connect') do |host|
 		options[:host] = host
 	end
 	
 	options[:port] = nil
-	opts.on( '-p', '--port PORT', 'Remote port to connect' ) do|port|
+	opts.on('-p', '--port PORT', 'Remote port to connect') do |port|
 		options[:port] = port
 	end
 
 	options[:dir] = nil
-	opts.on( '-d', '--directory DIR', 'Base directory on remote host' ) do|dir|
+	opts.on('-d', '--directory DIR', 'Base directory on remote host') do |dir|
 		options[:dir] = dir
 	end
 	
 	options[:exclude] = nil
-	opts.on( '-e', '--exclude-paths EXCLUDE', 'File paths to exclude from the sync, separated by spaces' ) do|exclude|
+	opts.on('-e', '--exclude-paths EXCLUDE', 'File paths to exclude from the sync, separated by spaces') do |exclude|
 		options[:exclude] = exclude
 	end
 
 	options[:include] = nil
-        opts.on( '-i', '--include-paths INCLUDE', 'File paths to include in the sync, separated by spaces' ) do|include|
-                options[:include] = include
-        end
+	opts.on('-i', '--include-paths INCLUDE', 'File paths to include in the sync, separated by spaces') do |include|
+		options[:include] = include
+	end
 	
 	options[:follow] = nil
-	opts.on( '-f', '--follow-symlinks', 'Listen to symlinked directories' ) do
+	opts.on('-f', '--follow-symlinks', 'Listen to symlinked directories') do
 		options[:follow] = true
 	end
 
 	options[:remove] = nil
-	opts.on( '-r', '--delete', 'Remove remote files that have been deleted locally' ) do|remove|
+	opts.on('-r', '--delete', 'Remove remote files that have been deleted locally') do |remove|
 		options[:remove] = '--delete'
 	end
 	
 	options[:symlink] = '-L'
-	opts.on( '-s', '--preserve-symlinks', 'Preserve symlinks' ) do
+	opts.on('-s', '--preserve-symlinks', 'Preserve symlinks') do
 		options[:symlink] = '-l'
 	end
 	
 	# This displays the help screen, all programs are
 	# assumed to have this option.
-	opts.on( '-h', '--help', 'Display this screen' ) do
+	opts.on('-h', '--help', 'Display this screen') do
 		puts opts
 		exit
 	end
@@ -85,27 +86,27 @@ end
 
 $exclude = ""
 if options[:exclude] then
-	options[:exclude].split(/ /).each { |excludePath|
+	options[:exclude].split(/ /).each do |excludePath|
 		$exclude += "--exclude #{excludePath} "
-	}
+	end
 end
 
 $include = ""
 if options[:include] then
-	options[:include].split(/ /).each { |includePath|
+	options[:include].split(/ /).each do |includePath|
 		$include += "--include #{includePath}"
-	}
+	end
 end
 
 $d=File.basename Dir.pwd
 $locations = [$d];
 
 if options[:follow] then
-	Dir.glob( File.join('.', '**', '*') ) { |filename|
+	Dir.glob( File.join('.', '**', '*') ) do |filename|
 	    if (File.symlink?(filename)) then
 			$locations.push(File.readlink(filename))
 	    end
-	}
+	end
 end
 
 if options[:port] then
@@ -113,9 +114,6 @@ if options[:port] then
 else 
 	options[:ssh] = "ssh"	
 end
-
-
-
 
 fsevent = FSEvent.new
 Dir.chdir '..'
@@ -129,11 +127,9 @@ system "/usr/local/bin/growlnotify -a 'Network Utility' -m 'Initial sync complet
 fsevent.watch $d do |directories|
 	system $sync
 
-	if !directories.inspect.scan(Regexp.new(skippableDirectories.join('|')))
+	if !directories.inspect.scan(Regexp.new(skippable_directories.join('|')))
 		system "/usr/local/bin/growlnotify -a 'Network Utility' -m 'Synced changes inside: #{directories.inspect}'"
 	end
-
 end
-fsevent.run
 
-#system $sync
+fsevent.run
