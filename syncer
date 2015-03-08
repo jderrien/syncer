@@ -79,15 +79,7 @@ exclude_paths = options[:exclude_paths].map { |p| "--exclude '#{p}'" }.join(' ')
 include_paths = options[:include_paths].map { |p| "--include '#{p}'" }.join(' ')
 
 d=File.basename Dir.pwd
-locations = [d];
 
-if options[:follow] then
-	Dir.glob( File.join('.', '**', '*') ) do |filename|
-	    if (File.symlink?(filename)) then
-			locations.push(File.readlink(filename))
-	    end
-	end
-end
 
 if options[:port] then
 	options[:ssh] = "ssh -p#{options[:port]}"	
