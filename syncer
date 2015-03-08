@@ -13,8 +13,8 @@ options = {
 	:host => nil,
 	:port => nil,
 	:dir => nil,
-	:exclude => nil,
-	:include => nil,
+	:exclude_paths => [],
+	:include_paths => [],
 	:follow => nil,
 	:remove => nil,
 	:symlink => '-L'
@@ -42,12 +42,12 @@ optparse = OptionParser.new do |opts|
 		options[:dir] = dir
 	end
 
-	opts.on('-e', '--exclude-paths EXCLUDE', 'File paths to exclude from the sync, separated by spaces') do |exclude|
-		options[:exclude] = exclude
+	opts.on('-e', '--exclude-paths PATH[,PATH[...]]', Array, 'File paths to exclude from the sync') do |paths|
+		options[:exclude_paths] = paths
 	end
 
-	opts.on('-i', '--include-paths INCLUDE', 'File paths to include in the sync, separated by spaces') do |include|
-		options[:include] = include
+	opts.on('-i', '--include-paths PATH[,PATH[...]]', Array, 'File paths to include in the sync') do |paths|
+		options[:include_paths] = paths
 	end
 
 	opts.on('-f', '--follow-symlinks', 'Listen to symlinked directories') do
@@ -75,19 +75,8 @@ optparse.parse!
 raise OptionParser::MissingArgument, "Please provide -H HOST or --host HOST." if options[:host].nil?
 raise OptionParser::MissingArgument, "Please provide -d DIR or --dir DIR." if options[:dir].nil?
 
-exclude = ""
-if options[:exclude] then
-	options[:exclude].split(/ /).each do |excludePath|
-		exclude += "--exclude #{excludePath} "
-	end
-end
-
-include = ""
-if options[:include] then
-	options[:include].split(/ /).each do |includePath|
-		include += "--include #{includePath}"
-	end
-end
+exclude_paths = options[:exclude_paths].map { |p| "--exclude '#{p}'" }.join(' ')
+include_paths = options[:include_paths].map { |p| "--include '#{p}'" }.join(' ')
 
 d=File.basename Dir.pwd
 locations = [d];
@@ -109,7 +98,7 @@ end
 fsevent = FSEvent.new
 Dir.chdir '..'
 
-sync = "rsync #{options[:symlink]} -C #{options[:remove]} -rt --rsh='#{options[:ssh]}' #{include} #{exclude} '#{d}' '#{options[:user]}@#{options[:host]}:#{options[:dir]}'" 
+sync = "rsync #{options[:symlink]} -C #{options[:remove]} -rt --rsh='#{options[:ssh]}' #{include_paths} #{exclude_paths} '#{d}' '#{options[:user]}@#{options[:host]}:#{options[:dir]}'" 
 
 system "/usr/local/bin/growlnotify -a 'Network Utility' -m 'Syncer2.0 started'"
 system sync
