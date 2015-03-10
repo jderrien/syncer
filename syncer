@@ -141,7 +141,3 @@ listener.start # not blocking
 sleep # blocking
 
 exit
-
-end
-
-fsevent.run
