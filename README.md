@@ -1,15 +1,28 @@
-Based on mxcl's work here: https://gist.github.com/149491/
+# Syncer
 
-This is a ruby script that uses Mac OS X's FSevents API and rsync to sync changes from the local file system to a remote location. It can be invoked like this from within the directory you want to sync:
+Syncer permits to sync changes from your local file system to a remote location via SSH and rsync.
 
-ruby syncer2.0 -e excluded_file -f -r -s -p 2222 -u username -H myhost.com -d "/the/remote/directory/"
+It's based on the gem [Listen](https://github.com/guard/listen) to listen to file modifications.
 
-growlnotify and ruby gems must be installed on your system.
+Currently Syncer has been only tested on Mac OS X.
 
-To install ruby gems:
-curl -O http://files.rubyforge.vm.bytemark.co.uk/rubygems/rubygems-1.3.5.tgz
-tar xzvf rubygems-1.3.5.tgz
-cd rubygems-1.3.5
-sudo /usr/bin/ruby setup.rb
-sudo gem install rb-fsevent
+## Pre-requisite
 
+* Ruby 1.9+ (tested on 2.0.0)
+* Xcode and the Command Line Tools to install listen
+
+## Install
+
+* Install Listen: `sudo gem install --no-ri --no-rdoc listen`
+* Clone this git repo wherever you want
+* Then you can install it to `/usr/local/bin` with `make install`
+
+## Usage
+
+```
+syncer --help
+```
+
+## Uninstall
+
+* In the source code directory type `make uninstall`
