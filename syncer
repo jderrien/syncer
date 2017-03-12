@@ -24,6 +24,8 @@ options = {
 	:include_patterns => [],
 	:delete => nil,
 	:symlinks => '--links',
+	:pre_sync_hook => nil,
+	:ignore_paths => [],
 	:dry_run => false,
 	:debug => false,
 }
@@ -50,12 +52,12 @@ optparse = OptionParser.new do |opts|
 		options[:remote_basedir] = dir
 	end
 
-	opts.on('-e', '--exclude PATTERN[,PATTERN]...', Array, 'Exclude files matching PATTERN (rsync option)') do |p|
-		options[:exclude_patterns] = p
+	opts.on('-e', '--exclude PATTERN[,PATTERN]...', Array, 'Exclude files matching PATTERN (rsync option)') do |pattern|
+		options[:exclude_patterns] = pattern
 	end
 
-	opts.on('-i', '--include PATTERN[,PATTERN]...', Array, 'Don\'t exclude files matching PATTERN (rsync option)') do |p|
-		options[:include_patterns] = p
+	opts.on('-i', '--include PATTERN[,PATTERN]...', Array, 'Don\'t exclude files matching PATTERN (rsync option)') do |pattern|
+		options[:include_patterns] = pattern
 	end
 
 	opts.on('--delete', 'Delete remote files that have been deleted locally & delete remote files that have been excluded') do
@@ -64,6 +66,16 @@ optparse = OptionParser.new do |opts|
 
 	opts.on('--copy-links', 'Transform symlink into referent file/dir (default: copy symlinks as symlinks)') do
 		options[:symlinks] = '--copy-links'
+	end
+  
+	opts.on('--pre-sync-hook COMMAND', 'Specify a command to execute before syncing files') do |command|
+		options[:pre_sync_hook] = command
+	end
+	
+	opts.on('--ignore REGEXP[,REGEXP]...', Array, 'Don\'t track changes for these paths') do |regexp|
+		regexp.each do |r|
+			options[:ignore_paths] << Regexp.new(r)
+		end
 	end
 
 	opts.on('--debug', 'Enable debug mode') do
@@ -126,12 +138,20 @@ rsync = "rsync #{rsync_opts.join(" ")} --rsh='#{ssh_cmd}' #{sources.join(" ")} #
 # Initial sync
 logger.debug "Rsync command: #{rsync}"
 logger.info "Launch initial rsync..."
+if options[:pre_sync_hook]
+  logger.info("Execure pre-sync hook: #{options[:pre_sync_hook]}")
+  system(options[:pre_sync_hook])
+end
 system(rsync) if ! options[:dry_run]
 logger.info "Done!"
 
 # Sync when a file is changed
-listener = Listen.to(sources, :wait_for_delay => 1) do |modified, added, removed|
+listener = Listen.to(sources, :ignore => options[:ignore_paths], :wait_for_delay => 1) do |modified, added, removed|
 	logger.info "Changes detected, launch rsync..."
+  if options[:pre_sync_hook]
+    logger.info("Execure pre-sync hook: #{options[:pre_sync_hook]}")
+    system(options[:pre_sync_hook])
+  end
 	system(rsync) if ! options[:dry_run]
 	logger.info "Done!"
 end
