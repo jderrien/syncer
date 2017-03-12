@@ -8,8 +8,8 @@ Currently Syncer has been only tested on Mac OS X.
 
 ## Pre-requisite
 
-* Ruby 1.9+ (tested on 2.0.0)
-* Xcode and the Command Line Tools to install listen
+* Ruby 2.0+
+* Xcode Command Line Tools, install with: `xcode-select --install`
 
 ## Install
 
@@ -25,4 +25,13 @@ syncer --help
 
 ## Uninstall
 
-* In the source code directory type `rake uninstall`
+* In the source code directory, uninstall syncer with: `rake uninstall`
+
+## Development
+
+For test and debug purposes:
+```
+vagrant up
+ssh-add .vagrant/machines/default/virtualbox/private_key
+syncer --user vagrant --port 2222 --host localhost --debug --directory '~/' .
+```
