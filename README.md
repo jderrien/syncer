@@ -15,7 +15,7 @@ Currently Syncer has been only tested on Mac OS X.
 
 * Install Listen: `sudo gem install --no-ri --no-rdoc listen`
 * Clone this git repo wherever you want
-* Then you can install it to `/usr/local/bin` with `make install`
+* Then you can install it to `/usr/local/bin` with `rake install`
 
 ## Usage
 
@@ -25,4 +25,4 @@ syncer --help
 
 ## Uninstall
 
-* In the source code directory type `make uninstall`
+* In the source code directory type `rake uninstall`
