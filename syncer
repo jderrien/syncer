@@ -1,61 +1,92 @@
 #!/usr/bin/env ruby
-require 'osx/foundation'
+
+require 'rubygems'
+require 'listen'
 require 'optparse'
+require 'logger'
 
-OSX.require_framework '/System/Library/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework'
-include OSX
+# Logger setup
+logger = Logger.new(STDERR)
 
-options = {}
+logger.level = Logger::INFO
+logger.datetime_format = '%Y-%m-%d %H:%M:%S'
+logger.formatter = proc do |severity, datetime, progname, msg|
+  "#{datetime}   #{severity}\t#{msg}\n"
+end
 
-optparse = OptionParser.new do|opts|
-	# Set a banner, displayed at the top
-	# of the help screen.
-	opts.banner = "Usage: #{$0} [options] file1 file2 ..."
+# Set default options
+options = {
+	:user => nil,
+	:host => nil,
+	:port => nil,
+	:remote_basedir => nil,
+	:exclude_patterns => [],
+	:include_patterns => [],
+	:delete => nil,
+	:symlinks => '--links',
+	:pre_sync_hook => nil,
+	:ignore_paths => [],
+	:dry_run => false,
+	:debug => false,
+}
+
+# Parse command line
+optparse = OptionParser.new do |opts|
+	# Set a banner, displayed at the top of the help screen
+	opts.banner = "Usage: #{$0} [options] SRC [SRC]..."
 
 	# Define the options, and what they do
-	options[:user] = nil
-	opts.on( '-u', '--user USER', 'User name for remote host' ) do|user|
+	opts.on('-u', '--user USER', 'User name for remote host') do |user|
 		options[:user] = user
 	end
 
-	options[:host] = nil
-	opts.on( '-H', '--host HOST', 'Remote host to connect' ) do|host|
+	opts.on('-H', '--host HOST', 'Remote host to connect') do |host|
 		options[:host] = host
 	end
-	
-	options[:port] = nil
-	opts.on( '-p', '--port PORT', 'Remote port to connect' ) do|port|
+
+	opts.on('-p', '--port PORT', 'Remote port to connect') do |port|
 		options[:port] = port
 	end
 
-	options[:dir] = nil
-	opts.on( '-d', '--directory DIR', 'Base directory on remote host' ) do|dir|
-		options[:dir] = dir
-	end
-	
-	options[:exclude] = nil
-	opts.on( '-e', '--exclude-paths EXCLUDE', 'File paths to exclude from the sync, separated by spaces' ) do|exclude|
-		options[:exclude] = exclude
-	end
-	
-	options[:follow] = nil
-	opts.on( '-f', '--follow-symlinks', 'Listen to symlinked directories' ) do
-		options[:follow] = true
+	opts.on('-d', '--directory DIR', 'Base directory on remote host') do |dir|
+		options[:remote_basedir] = dir
 	end
 
-	options[:remove] = nil
-	opts.on( '-r', '--delete', 'Remove remote files that have been deleted locally' ) do|remove|
-		options[:remove] = '--delete'
+	opts.on('-e', '--exclude PATTERN[,PATTERN]...', Array, 'Exclude files matching PATTERN (rsync option)') do |pattern|
+		options[:exclude_patterns] = pattern
+	end
+
+	opts.on('-i', '--include PATTERN[,PATTERN]...', Array, 'Don\'t exclude files matching PATTERN (rsync option)') do |pattern|
+		options[:include_patterns] = pattern
+	end
+
+	opts.on('--delete', 'Delete remote files that have been deleted locally & delete remote files that have been excluded') do
+		options[:delete] = '--delete --delete-excluded'
+	end
+
+	opts.on('--copy-links', 'Transform symlink into referent file/dir (default: copy symlinks as symlinks)') do
+		options[:symlinks] = '--copy-links'
+	end
+  
+	opts.on('--pre-sync-hook COMMAND', 'Specify a command to execute before syncing files') do |command|
+		options[:pre_sync_hook] = command
 	end
 	
-	options[:symlink] = '-L'
-	opts.on( '-s', '--preserve-symlinks', 'Preserve symlinks' ) do
-		options[:symlink] = '-l'
+	opts.on('--ignore REGEXP[,REGEXP]...', Array, 'Don\'t track changes for these paths') do |regexp|
+		regexp.each do |r|
+			options[:ignore_paths] << Regexp.new(r)
+		end
 	end
-	
-	# This displays the help screen, all programs are
-	# assumed to have this option.
-	opts.on( '-h', '--help', 'Display this screen' ) do
+
+	opts.on('--debug', 'Enable debug mode') do
+		options[:debug] = true
+	end
+
+	opts.on('--dry-run', 'Listen without actually sync (even if logs say the opposite)') do
+		options[:dry_run] = true
+	end
+
+	opts.on('-h', '--help', 'Display this screen') do
 		puts opts
 		exit
 	end
@@ -63,73 +94,70 @@ end
 
 optparse.parse!
 
-if !options[:user] then
-	puts "Please provide a user name with option -u USER or --user USER. Run #{$0} --help for more info."
-	exit
+# Raise exeception if something is missing
+raise OptionParser::MissingArgument, "Please provide -H HOST or --host HOST." if options[:host].nil?
+raise OptionParser::MissingArgument, "Please provide -d DIR or --dir DIR." if options[:remote_basedir].nil?
+raise OptionParser::MissingArgument, "Please provide one or multiple sources to sync." if ARGV.empty?
+
+# Check if local sources to sync really exists, also remove
+# the trailing slash (preferable to use with rsync)
+sources = ARGV.map do |s|
+	raise ArgumentError, "Local ressource '#{s}' does not exist." if ! File.exists? s
+	s.chomp("/")
 end
 
-if !options[:host] then
-	puts "Please provide a host name with option -H HOST or --host USER. Run #{$0} --help for more info."
-	exit
+logger.level = Logger::DEBUG if options[:debug]
+
+logger.info("Syncer started!")
+logger.info("Sources: #{sources.join(', ')}")
+logger.debug("Options: #{options}")
+
+# SSH command
+ssh_cmd = options[:port] ? "ssh -p#{options[:port]}" : "ssh"
+
+ssh_dest = "#{options[:host]}:#{options[:remote_basedir]}"
+ssh_dest = "#{options[:user]}@#{ssh_dest}" if options[:user]
+
+# Build rsync arguments as an array
+rsync_opts = [
+	"--recursive",
+	"--times",
+	"--perms",
+	options[:symlinks],
+]
+
+rsync_opts << options[:delete] if options[:delete]
+rsync_opts << "--verbose" if options[:debug]
+
+rsync_opts.concat options[:exclude_patterns].map { |p| "--exclude '#{p}'" }
+rsync_opts.concat options[:include_patterns].map { |p| "--include '#{p}'" }
+
+# Complete rsync command
+rsync = "rsync #{rsync_opts.join(" ")} --rsh='#{ssh_cmd}' #{sources.join(" ")} #{ssh_dest}"
+
+# Initial sync
+logger.debug "Rsync command: #{rsync}"
+logger.info "Launch initial rsync..."
+if options[:pre_sync_hook]
+  logger.info("Execure pre-sync hook: #{options[:pre_sync_hook]}")
+  system(options[:pre_sync_hook])
+end
+system(rsync) if ! options[:dry_run]
+logger.info "Done!"
+
+# Sync when a file is changed
+listener = Listen.to(sources, :ignore => options[:ignore_paths], :wait_for_delay => 1) do |modified, added, removed|
+	logger.info "Changes detected, launch rsync..."
+  if options[:pre_sync_hook]
+    logger.info("Execure pre-sync hook: #{options[:pre_sync_hook]}")
+    system(options[:pre_sync_hook])
+  end
+	system(rsync) if ! options[:dry_run]
+	logger.info "Done!"
 end
 
-if !options[:dir] then
-	puts "Please provide a remote directory with option -d DIR or --dir DIR. Run #{$0} --help for more info."
-	exit
-end
+logger.info "Start listening."
+listener.start # not blocking
+sleep # blocking
 
-$exclude = ""
-if options[:exclude] then
-	options[:exclude].split(/ /).each { |excludePath|
-		$exclude += "--exclude #{excludePath} "
-	}
-end
-
-$d=File.basename Dir.pwd
-$locations = [$d];
-
-if options[:follow] then
-	Dir.glob( File.join('.', '**', '*') ) { |filename|
-	    if (File.symlink?(filename)) then
-			$locations.push(File.readlink(filename))
-	    end
-	}
-end
-
-if options[:port] then
-	options[:ssh] = "ssh -p#{options[:port]}"	
-else 
-	options[:ssh] = "ssh"	
-end
-
-Dir.chdir '..'
-
-fsevents_cb = proc do |stream, ctx, numEvents, paths, marks, eventIDs|
-  
-  system "rsync #{options[:symlink]} -C #{options[:remove]} -rt --rsh='#{options[:ssh]}' #{$exclude} '#{$d}' '#{options[:user]}@#{options[:host]}:#{options[:dir]}'"
-  system "growlnotify -m 'Change detected in #{numEvents} file(s)'"
-end
-
-stream = FSEventStreamCreate(
-  KCFAllocatorDefault,
-  fsevents_cb,
-  nil,
-  $locations,
-  KFSEventStreamEventIdSinceNow,
-  1.0,
-  0)
-
-die "Failed to create the FSEventStream" unless stream
-
-FSEventStreamScheduleWithRunLoop(
-  stream,
-  CFRunLoopGetCurrent(),
-  KCFRunLoopDefaultMode)
-
-die "Failed to start the FSEventStream" unless FSEventStreamStart(stream)
-
-#print "rsync #{options[:symlink]} -C #{options[:remove]} -rt --rsh='#{options[:ssh]}' #{$exclude} '#{$d}' '#{options[:user]}@#{options[:host]}:#{options[:dir]}'"
-system "rsync #{options[:symlink]} -C #{options[:remove]} -rt --rsh='#{options[:ssh]}' #{$exclude} '#{$d}' '#{options[:user]}@#{options[:host]}:#{options[:dir]}'"
-system "growlnotify -m 'Syncer started'"
-
-CFRunLoopRun()
+exit
