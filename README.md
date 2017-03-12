@@ -13,11 +13,9 @@ Currently Syncer has been only tested on Mac OS X.
 
 ## Install
 
-* Install Listen:
-  * On ElCapitan or older: `sudo gem install listen --version '~> 3.0.0' --no-ri --no-rdoc` ([this](https://github.com/guard/listen/issues/414) and [this link](https://github.com/e2/ruby_dep/pull/19))
-  * On Sierra or newer: `sudo gem install --no-ri --no-rdoc listen`
-* Clone this git repo
-* You can install `syncer` in `/usr/local/bin` with: `rake install`
+* Clone this repository
+* Install dependencies with: `sudo gem install --no-ri --no-rdoc --file Gemfile`
+* Install `syncer` in `/usr/local/bin` with: `rake install`
 
 ## Usage
 
